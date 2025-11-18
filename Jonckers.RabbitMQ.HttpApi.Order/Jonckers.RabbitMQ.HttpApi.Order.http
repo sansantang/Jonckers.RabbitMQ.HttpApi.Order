@@ -1,0 +1,6 @@
+@Jonckers.RabbitMQ.HttpApi.Order_HostAddress = http://localhost:5109
+
+GET {{Jonckers.RabbitMQ.HttpApi.Order_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
