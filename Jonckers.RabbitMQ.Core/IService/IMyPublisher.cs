@@ -12,5 +12,6 @@ namespace Jonckers.RabbitMQ.Core.IService
     public interface IMyPublisher<T> where T : class
     {
         Task PublishAsync(T data, Encoding encoding = null);
+        Task PublishAsync(string routingKey, T data, string exchangeName = "", Encoding encoding = null);
     }
 }

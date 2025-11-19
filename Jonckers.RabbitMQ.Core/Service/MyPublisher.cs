@@ -7,6 +7,7 @@ using RabbitMQ.Client.Events;
 using System;
 using System.Reflection;
 using System.Text;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Jonckers.RabbitMQ.Core.Service
@@ -27,12 +28,12 @@ namespace Jonckers.RabbitMQ.Core.Service
         public MyPublisher(IConnection connection)
         {
             _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-            
+
             // 初始化队列名称
             var type = typeof(T);
-            var attr = type.GetCustomAttribute<QueueNameAttribute>();
-            _queueName = string.IsNullOrWhiteSpace(attr?.QueueName) ? type.FullName : attr.QueueName;
-            
+            var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
+            _queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
+
             // 在同步构造函数中使用异步方法的同步调用
             _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult();
         }
@@ -49,43 +50,43 @@ namespace Jonckers.RabbitMQ.Core.Service
             if (factory == null) throw new ArgumentNullException(nameof(factory));
 
             var options = optionsMonitor.CurrentValue;
-            
+
             // 异步创建连接和通道
             var connection = await factory.CreateConnectionAsync().ConfigureAwait(false);
             var channel = await connection.CreateChannelAsync().ConfigureAwait(false);
-            
+
             // 异步声明交换机
             await channel.ExchangeDeclareAsync(
-                options.ExchangeName, 
-                ExchangeType.Direct, 
-                durable: false, 
-                autoDelete: false, 
+                options.ExchangeName,
+                ExchangeType.Direct,
+                durable: false,
+                autoDelete: false,
                 arguments: null).ConfigureAwait(false);
-            
+
             // 获取队列名称
             var type = typeof(T);
-            var attr = type.GetCustomAttribute<QueueNameAttribute>();
-            var queueName = string.IsNullOrWhiteSpace(attr?.QueueName) ? type.FullName : attr.QueueName;
-            
+            var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
+            var queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
+
             // 异步声明队列
             await channel.QueueDeclareAsync(
                 queue: queueName,
-                durable: false,
+                durable: true,
                 exclusive: false,
                 autoDelete: false,
                 arguments: null).ConfigureAwait(false);
-            
+
             // 异步绑定队列到交换机
             await channel.QueueBindAsync(
                 queue: queueName,
                 exchange: options.ExchangeName,
                 routingKey: queueName,
                 arguments: null).ConfigureAwait(false);
-            
+
             // 使用私有构造函数创建实例
             return new MyPublisher<T>(options, connection, channel, queueName);
         }
-        
+
         /// <summary>
         /// 私有构造函数，供工厂方法使用
         /// </summary>
@@ -112,39 +113,39 @@ namespace Jonckers.RabbitMQ.Core.Service
             if (factory == null) throw new ArgumentNullException(nameof(factory));
 
             _myOptions = optionsMonitor.CurrentValue;
-            
+
             try
             {
                 // 注意：在构造函数中使用.GetAwaiter().GetResult()比.Result更安全，可以避免某些死锁情况
                 _connection = factory.CreateConnectionAsync().GetAwaiter().GetResult();
                 _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult();
-                
+
                 // 声明Exchange
                 _channel.ExchangeDeclareAsync(
-                    _myOptions.ExchangeName, 
-                    ExchangeType.Direct, 
-                    false, 
-                    false, 
+                    _myOptions.ExchangeName,
+                    ExchangeType.Direct,
+                    false,
+                    false,
                     null).GetAwaiter().GetResult();
 
                 var type = typeof(T);
                 // 获取类上的QueueNameAttribute特性，如果不存在则使用类的完整名
-                var attr = type.GetCustomAttribute<QueueNameAttribute>();
-                _queueName = string.IsNullOrWhiteSpace(attr?.QueueName) ? type.FullName : attr.QueueName;
+                var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
+                _queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
 
                 // 声明队列
                 _channel.QueueDeclareAsync(
-                    _queueName, 
-                    false, 
-                    false, 
-                    false, 
+                    _queueName,
+                    true,
+                    false,
+                    false,
                     null).GetAwaiter().GetResult();
 
                 // 将队列绑定到交换机
                 _channel.QueueBindAsync(
-                    _queueName, 
-                    _myOptions.ExchangeName, 
-                    _queueName, 
+                    _queueName,
+                    _myOptions.ExchangeName,
+                    _queueName,
                     null).GetAwaiter().GetResult();
             }
             catch
@@ -174,11 +175,48 @@ namespace Jonckers.RabbitMQ.Core.Service
                 // 对象序列化为JSON
                 var msg = JsonConvert.SerializeObject(data);
                 byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
-                
+
                 // 使用异步方法发布消息
                 await _channel.BasicPublishAsync(
                     exchange: _myOptions.ExchangeName,
                     routingKey: _queueName,
+                    body: bytes).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 可以根据需要记录日志或进行其他错误处理
+                throw new InvalidOperationException($"发布消息失败: {ex.Message}", ex);
+            }
+        }
+
+        public async Task PublishAsync(string routingKey, T data, string exchangeName = "", Encoding encoding = null)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(MyPublisher<T>));
+            if (data == null) throw new ArgumentNullException(nameof(data));
+
+            try
+            {
+                if (exchangeName != string.Empty)
+                {
+                    //await _channel.ExchangeDeclareAsync(exchangeName, ExchangeType.Direct,durable: true,autoDelete: false, null);
+                    await _channel.ExchangeDeclareAsync(exchangeName, ExchangeType.Direct);
+
+                    await _channel.QueueBindAsync(
+                        queue: _queueName,
+                        exchange: exchangeName,
+                        routingKey: routingKey
+                    );
+                }
+
+
+                // 对象序列化为JSON
+                var msg = JsonConvert.SerializeObject(data);
+                byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
+
+                // 使用异步方法发布消息
+                await _channel.BasicPublishAsync(
+                    exchange: string.IsNullOrEmpty(exchangeName) ? _myOptions.ExchangeName : exchangeName,
+                    routingKey: routingKey,
                     body: bytes).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -211,7 +249,7 @@ namespace Jonckers.RabbitMQ.Core.Service
                     _channel?.Dispose();
                     _connection?.Dispose();
                 }
-                
+
                 _disposed = true;
             }
         }
