@@ -5,8 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using System.Linq;
@@ -41,7 +39,8 @@ namespace Jonckers.RabbitMQ.Core
 
             // 加了这行，才可以注入IOptions<RabbitMQOptions>或者IOptionsMonitor<RabbitMQOptions>
             //services.Configure<RabbitMQOptions>(optionSection);
-            services.Configure<RabbitMQOptions>(options => {
+            services.Configure<RabbitMQOptions>(options =>
+            {
                 options.UserName = myOptions.UserName;
                 options.Password = myOptions.Password;
                 options.Host = myOptions.Host;
@@ -115,7 +114,7 @@ namespace Jonckers.RabbitMQ.Core
             return services;
         }
 
-       /// <summary>
+        /// <summary>
         /// 给app拓展方法
         /// </summary>
         /// <remarks>
@@ -125,21 +124,36 @@ namespace Jonckers.RabbitMQ.Core
         {
             // 将事件处理器存储在静态变量中，防止被垃圾回收
             var eventHandlerHolder = new List<IMyEventHandler>();
-            
+
             try
             {
                 var handlers = app.ApplicationServices.GetServices(typeof(IMyEventHandler));
                 var factory = app.ApplicationServices.GetService<ConnectionFactory>();
-                                
+
                 if (!handlers.Any())
                 {
                     Console.WriteLine("未发现任何事件处理器");
                     return app;
                 }
-                
+
                 // 获取连接（同步方式，避免异步上下文问题）
-                var connection = await factory.CreateConnectionAsync();
-                Console.WriteLine("RabbitMQ connection established");
+                IConnection? connection = null;
+                var connectionStartTime = DateTime.Now;
+                Console.WriteLine($"开始建立RabbitMQ连接: {connectionStartTime:yyyy-MM-dd HH:mm:ss.fff}");
+                try
+                {
+                    connection = await factory.CreateConnectionAsync();
+                    var connectionEndTime = DateTime.Now;
+                        Console.WriteLine($"RabbitMQ连接建立成功: {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
+
+                }
+                catch (Exception connectEx)
+                {
+                    var connectionEndTime = DateTime.Now;
+                    Console.WriteLine($"RabbitMQ连接失败: {connectEx.Message}, {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
+                    Console.WriteLine($"连接配置: Host={factory.HostName}, Port={factory.Port}, User={factory.UserName}");
+                    throw new InvalidOperationException("无法建立RabbitMQ连接", connectEx);
+                }
 
                 // 遍历调用自定义的Begin方法
                 foreach (var h in handlers)
@@ -149,18 +163,18 @@ namespace Jonckers.RabbitMQ.Core
                     {
                         handler.Begin(connection).Wait(); // 同步等待确保初始化完成
                         eventHandlerHolder.Add(handler); // 保存引用防止被垃圾回收
-                        Console.WriteLine($"Handler {h.GetType().Name} started successfully");
+                        Console.WriteLine($"Handler {h.GetType().Name} started successfully \n");
                     }
                     else
                     {
                         Console.WriteLine($"Failed to cast handler: {h.GetType().Name}");
                     }
                 }
-                
+
                 // 将事件处理器持有者注册为单例，确保不会被垃圾回收
                 app.ApplicationServices.GetService<System.IServiceProvider>()
                     .GetService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
-                
+
                 Console.WriteLine("所有事件处理器初始化完成");
             }
             catch (Exception ex)

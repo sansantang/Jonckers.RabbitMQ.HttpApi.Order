@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.HttpApi.O
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.Core", "Jonckers.RabbitMQ.Core\Jonckers.RabbitMQ.Core.csproj", "{131539AF-82A5-4CA4-8165-C2783FDB1596}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.Service", "Jonckers.RabbitMQ.Service\Jonckers.RabbitMQ.Service.csproj", "{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{131539AF-82A5-4CA4-8165-C2783FDB1596}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{131539AF-82A5-4CA4-8165-C2783FDB1596}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{131539AF-82A5-4CA4-8165-C2783FDB1596}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

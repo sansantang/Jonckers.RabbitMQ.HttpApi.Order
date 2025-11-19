@@ -1,5 +1,6 @@
 ﻿using Jonckers.RabbitMQ.Core;
 using Jonckers.RabbitMQ.HttpApi.Order;
+using Jonckers.RabbitMQ.HttpApi.Order.Consumer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +14,7 @@ builder.Services.AddSwaggerGen();
 
 // 添加MyRabbitMQ到services
 builder.Services.AddMyRabbitMQ(builder.Configuration);
-builder.Services.AddMyRabbitMQEventHandlers(typeof(PerryTest).Assembly.GetTypes());
+builder.Services.AddMyRabbitMQEventHandlers(typeof(PerryTestEventHandler).Assembly);
 
 var app = builder.Build();
 

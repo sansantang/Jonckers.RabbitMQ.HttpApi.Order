@@ -31,9 +31,9 @@ namespace Jonckers.RabbitMQ.Core.Service
 
         public async Task Begin(IConnection connection)
         {
-             var type = typeof(T);
+            var type = typeof(T);
             Console.WriteLine($"开始初始化事件处理器: {type.Name}");
-            
+
             // 获取类上的QueueNameAttribute特性，如果不存在则使用类的完整名
             var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
             _queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
@@ -44,7 +44,24 @@ namespace Jonckers.RabbitMQ.Core.Service
 
             //创建通道
             _channel = await connection.CreateChannelAsync();
+
+            // 设置 QoS - 每次只处理一条消息
+            await _channel.BasicQosAsync(0, 1, false);
+
             Console.WriteLine("通道创建成功");
+
+            if (Options.PrefetchSize > 0 || Options.PrefetchCount > 0)
+            {
+                await _channel.BasicQosAsync(
+                    Options.PrefetchSize,
+                    Options.PrefetchCount > 0 ? Options.PrefetchCount : (ushort)1,
+                    Options.Global);
+                Console.WriteLine($"QoS 设置完成 (prefetchSize={Options.PrefetchSize}, prefetchCount={Options.PrefetchCount}, global={Options.Global})");
+            }
+            else
+            {
+                Console.WriteLine("使用默认QoS设置");
+            }
 
             if (!string.IsNullOrEmpty(_exchangeName))
             {
@@ -73,18 +90,18 @@ namespace Jonckers.RabbitMQ.Core.Service
                 Console.WriteLine("队列绑定完成");
             }
 
-             
+
 
             _consumer = new AsyncEventingBasicConsumer(_channel);
             // 将消费者添加到静态列表中，防止被垃圾回收
             _strongReferences.Add(_consumer);
-            
-            Console.WriteLine($"_queueName:{_queueName},routingKey:{_routingKey},exchange:{_exchangeName}");            
+
+            Console.WriteLine($"_queueName:{_queueName},routingKey:{_routingKey},exchange:{_exchangeName}");
 
             // 保存方法引用
             _consumer.ReceivedAsync += MyReceivedHandler;
-             _strongReferences.Add(new Action<AsyncEventingBasicConsumer, object, BasicDeliverEventArgs>((c, s, e) => MyReceivedHandler(s, e).ConfigureAwait(false)));
-            
+            _strongReferences.Add(new Action<AsyncEventingBasicConsumer, object, BasicDeliverEventArgs>((c, s, e) => MyReceivedHandler(s, e).ConfigureAwait(false)));
+
             //消费者
             var consumerTag = await _channel.BasicConsumeAsync(_queueName, false, _consumer);
             Console.WriteLine($"消费者已启动，监听队列: {_queueName}，消费者标签: {consumerTag}");

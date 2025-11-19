@@ -1,4 +1,5 @@
 using Jonckers.RabbitMQ.Core.IService;
+using Jonckers.RabbitMQ.Service.ConsumerMessageModel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers

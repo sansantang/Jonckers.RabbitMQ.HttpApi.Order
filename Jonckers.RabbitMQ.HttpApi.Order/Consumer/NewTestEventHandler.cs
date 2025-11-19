@@ -1,17 +1,12 @@
 ﻿using Jonckers.RabbitMQ.Core.Service;
 using Jonckers.RabbitMQ.Service.ConsumerMessageModel;
+using Microsoft.Extensions.Options;
 
 namespace Jonckers.RabbitMQ.HttpApi.Order.Consumer
 {
-    public class PerryTestEventHandler : MyEventHandler<PerryTest>
+    public class NewTestEventHandler : MyEventHandler<NewTest>
     {
-        public PerryTestEventHandler()
-        {
-            // 配置 QoS 参数
-            Options.PrefetchCount = 2;    // 每次处理2条消息
-        }
-
-        public override Task OnReceivedAsync(PerryTest data, string message)
+        public override Task OnReceivedAsync(NewTest data, string message)
         {
             Console.WriteLine(message);
             return Task.CompletedTask;
