@@ -19,7 +19,6 @@ namespace Jonckers.RabbitMQ.Core.Service
         private readonly IChannel _channel;
         private readonly string _queueName;
         private bool _disposed = false;
-
         /// <summary>
         /// 非注入时使用此构造方法
         /// </summary>
@@ -176,6 +175,13 @@ namespace Jonckers.RabbitMQ.Core.Service
                 var msg = JsonConvert.SerializeObject(data);
                 byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
 
+
+                var properties = new BasicProperties
+                {
+                    Persistent = true
+                };
+
+
                 // 使用异步方法发布消息
                 await _channel.BasicPublishAsync(
                     exchange: _myOptions.ExchangeName,
@@ -189,7 +195,19 @@ namespace Jonckers.RabbitMQ.Core.Service
             }
         }
 
-        public async Task PublishAsync(string routingKey, T data, string exchangeName = "", Encoding encoding = null)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="routingKey"></param>
+        /// <param name="data">消息</param>
+        /// <param name="exchangeName">交换机名称</param>
+        /// <param name="expiration">消息超时时间，例如"60000"[60秒]</param>
+        /// <param name="encoding">Encoding 编码</param>
+        /// <returns></returns>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="InvalidOperationException"></exception>
+        public async Task PublishAsync(string routingKey, T data, string exchangeName = "", string expiration = "", Encoding encoding = null)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(MyPublisher<T>));
             if (data == null) throw new ArgumentNullException(nameof(data));
@@ -213,10 +231,22 @@ namespace Jonckers.RabbitMQ.Core.Service
                 var msg = JsonConvert.SerializeObject(data);
                 byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
 
+                var properties = new BasicProperties
+                {
+                    Persistent = true
+                };
+
+                if (!string.IsNullOrWhiteSpace(expiration) && int.TryParse(expiration, out _))
+                {
+                    properties.Expiration = expiration;
+                }
+
                 // 使用异步方法发布消息
                 await _channel.BasicPublishAsync(
                     exchange: string.IsNullOrEmpty(exchangeName) ? _myOptions.ExchangeName : exchangeName,
-                    routingKey: routingKey,
+                    routingKey: routingKey, 
+                    mandatory: false,
+                    basicProperties: properties,
                     body: bytes).ConfigureAwait(false);
             }
             catch (Exception ex)
