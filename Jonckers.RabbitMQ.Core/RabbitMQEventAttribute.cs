@@ -23,28 +23,65 @@ namespace Jonckers.RabbitMQ.Core
         /// </summary>
         public string RoutingKey { get; }
 
+        public DeadLetterExpiration DeadLetterExpiration { get; set; } = new DeadLetterExpiration(false, 6000000);
+
         /// <summary>
         /// 构造函数（队列名为必填参数，其他通过属性/命名参数配置）
         /// </summary>
         /// <param name="queue">队列名称（必填）</param>
-        public RabbitMQEventAttribute(string queue)
+        /// <param name="isWithDeadLetter">是否启用死信队列</param>
+        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             Exchange = ConfigurationManager.DefaultExchangeName; // 使用配置管理器中的默认交换机名称
+            DeadLetterExpiration = new DeadLetterExpiration(isWithDeadLetter, expirationMilliseconds);
         }
 
-        public RabbitMQEventAttribute(string routingkey, string queue)
+        /// <summary>
+        /// 构造函数（队列名和路由键为必填参数，其他通过属性/命名参数配置）
+        /// </summary>
+        /// <param name="routingkey"></param>
+        /// <param name="queue"></param>
+        /// <param name="isWithDeadLetter">是否启用死信队列</param>
+        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string routingkey, string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             RoutingKey = routingkey;
             Exchange = ConfigurationManager.DefaultExchangeName; // 使用配置管理器中的默认交换机名称
+            DeadLetterExpiration = new DeadLetterExpiration(isWithDeadLetter, expirationMilliseconds);
         }
 
-        public RabbitMQEventAttribute(string routingkey, string queue, string exchange)
+        /// <summary>
+        /// 构造函数（队列名和路由键为必填参数，其他通过属性/命名参数配置）
+        /// </summary>
+        /// <param name="routingkey"></param>
+        /// <param name="queue"></param>
+        /// <param name="exchange"></param>
+        /// <param name="isWithDeadLetter">是否启用死信队列</param>
+        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string routingkey, string queue, string exchange, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             RoutingKey = routingkey;
             Exchange = exchange; // 使用显式指定的交换机名称
+            DeadLetterExpiration = new DeadLetterExpiration(isWithDeadLetter, expirationMilliseconds);
+        }
+    }
+
+    public struct DeadLetterExpiration
+    {
+        // 是否死信（你的 bool 标识）
+        public bool IsDeadLetter { get; }
+        // 对应的过期时间（毫秒）
+        public int ExpirationMilliseconds { get; }
+
+        // 构造函数强制初始化，避免默认值混乱
+        public DeadLetterExpiration(bool isDeadLetter, int expirationMilliseconds)
+        {
+            IsDeadLetter = isDeadLetter;
+            ExpirationMilliseconds = expirationMilliseconds;
         }
     }
 

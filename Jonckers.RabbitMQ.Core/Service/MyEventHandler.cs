@@ -72,23 +72,23 @@ namespace Jonckers.RabbitMQ.Core.Service
             }
 
             // 异步声明队列
-            await _channel.QueueDeclareAsync(
-                queue: _queueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null);
-            Console.WriteLine("队列声明完成");
+            //await _channel.QueueDeclareAsync(
+            //    queue: _queueName,
+            //    durable: true,
+            //    exclusive: false,
+            //    autoDelete: false,
+            //    arguments: null);
+            //Console.WriteLine("队列声明完成");
 
-            if (_routingKey != "")
-            {
-                await _channel.QueueBindAsync(
-                queue: _queueName,
-                exchange: _exchangeName,
-                routingKey: _routingKey
-                );
-                Console.WriteLine("队列绑定完成");
-            }
+            //if (_routingKey != "")
+            //{
+            //    await _channel.QueueBindAsync(
+            //    queue: _queueName,
+            //    exchange: _exchangeName,
+            //    routingKey: _routingKey
+            //    );
+            //    Console.WriteLine("队列绑定完成");
+            //}
 
 
 

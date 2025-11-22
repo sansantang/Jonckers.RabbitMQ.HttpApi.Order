@@ -9,7 +9,7 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
     public class WeatherForecastController : ControllerBase
     {
 
-        public IMyPublisher<PerryTest> TestPublisher { get; }
+        public IMyPublisher<DeadLetterTest> TestPublisher { get; }
 
         private static readonly string[] Summaries = new[]
         {
@@ -18,29 +18,16 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
 
         private readonly ILogger<WeatherForecastController> _logger;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger, IMyPublisher<PerryTest> testPublisher)
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, IMyPublisher<DeadLetterTest> testPublisher)
         {
             _logger = logger;
             TestPublisher = testPublisher;
         }
 
-        [HttpGet(Name = "GetWeatherForecast")]
-        public IEnumerable<WeatherForecast> Get()
-        {
-            return Enumerable.Range(1, 5).Select(index => new WeatherForecast
-            {
-                Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                TemperatureC = Random.Shared.Next(-20, 55),
-                Summary = Summaries[Random.Shared.Next(Summaries.Length)]
-            })
-            .ToArray();
-        }
-
-
         [HttpGet("test")]
         public async Task<string> TestAsync()
         {
-            var data = new PerryTest()
+            var data = new DeadLetterTest()
             {
                 Id = Guid.NewGuid(),
                 Name = "AAA",
@@ -49,7 +36,9 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
             };
 
             //await TestPublisher.PublishAsync(data);
-            await TestPublisher.PublishAsync("jonckers.enterpriseordering.requestevent", data);
+            //await TestPublisher.PublishAsync("jonckers.enterpriseordering.requestevent", data);
+            await TestPublisher.PublishWithDeadLetterAsync(data);
+            //await TestPublisher.PublishAsync(data, "40000");
 
             return "发送了一个消息";
         }

@@ -1,10 +1,12 @@
-﻿using Jonckers.RabbitMQ.Core.IService;
+﻿using Jonckers.RabbitMQ.Core.Extend;
+using Jonckers.RabbitMQ.Core.IService;
 using Jonckers.RabbitMQ.Core.Options;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Threading.Channels;
@@ -17,7 +19,10 @@ namespace Jonckers.RabbitMQ.Core.Service
         private readonly RabbitMQOptions _myOptions;
         private readonly IConnection _connection;
         private readonly IChannel _channel;
+        private readonly string _exchangeName;
         private readonly string _queueName;
+        private readonly string _routingKeyName;
+        private bool _isWithDeadLetter = false;
         private bool _disposed = false;
         /// <summary>
         /// 非注入时使用此构造方法
@@ -119,33 +124,67 @@ namespace Jonckers.RabbitMQ.Core.Service
                 _connection = factory.CreateConnectionAsync().GetAwaiter().GetResult();
                 _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult();
 
+                var type = typeof(T);
+                // 获取类上的QueueNameAttribute特性，如果不存在则使用类的完整名
+                var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
+                _exchangeName = string.IsNullOrWhiteSpace(attr?.Exchange) ? _myOptions.ExchangeName : attr.Exchange;
+                _queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
+                _routingKeyName = string.IsNullOrWhiteSpace(attr?.RoutingKey) ? type.FullName : attr.RoutingKey;
+
+                var deadLetterExpiration = attr?.DeadLetterExpiration ?? new DeadLetterExpiration(false, 6000000);
+                _isWithDeadLetter = deadLetterExpiration.IsDeadLetter;
+
                 // 声明Exchange
                 _channel.ExchangeDeclareAsync(
-                    _myOptions.ExchangeName,
+                    _exchangeName,
                     ExchangeType.Direct,
                     false,
                     false,
                     null).GetAwaiter().GetResult();
 
-                var type = typeof(T);
-                // 获取类上的QueueNameAttribute特性，如果不存在则使用类的完整名
-                var attr = type.GetCustomAttribute<RabbitMQEventAttribute>();
-                _queueName = string.IsNullOrWhiteSpace(attr?.Queue) ? type.FullName : attr.Queue;
+                if (deadLetterExpiration.IsDeadLetter)
+                {
+                    var deadLetterExchangeName = _exchangeName + ".dlx-exchange";
+                    var deadLetterQueueName = _queueName + ".dlx-queue";
+                    var deadLetterRoutingKey = _routingKeyName + ".dlrk-routingKey";
+                    var args = new Dictionary<string, object>
+                    {
+                        // 死信交换机
+                        { "x-dead-letter-exchange", deadLetterExchangeName},
+                        // 死信路由键（消息路由到死信队列的规则）
+                        { "x-dead-letter-routing-key", deadLetterRoutingKey },
+                        // 可选：消息过期时间（毫秒）
+                        { "x-message-ttl", deadLetterExpiration.ExpirationMilliseconds },
+                        // 可选：队列最大长度
+                        //{ "x-max-length", 1000 }
+                    };
+                    // 声明队列
+                    _channel.QueueDeclareAsync(
+                        _queueName,
+                        true,
+                        false,
+                        false,
+                        args).GetAwaiter().GetResult();
 
-                // 声明队列
-                _channel.QueueDeclareAsync(
-                    _queueName,
-                    true,
-                    false,
-                    false,
-                    null).GetAwaiter().GetResult();
+
+                    _channel.InitDieLetterExchangeAsync(deadLetterExchangeName, deadLetterQueueName, deadLetterRoutingKey).GetAwaiter().GetResult(); ;
+                }
+                else
+                {
+                    // 声明队列
+                    _channel.QueueDeclareAsync(
+                        _queueName,
+                        true,
+                        false,
+                        false,
+                        null).GetAwaiter().GetResult();
+                }
 
                 // 将队列绑定到交换机
                 _channel.QueueBindAsync(
                     _queueName,
-                    _myOptions.ExchangeName,
-                    _queueName,
-                    null).GetAwaiter().GetResult();
+                    _exchangeName,
+                    _routingKeyName).GetAwaiter().GetResult();
             }
             catch
             {
@@ -184,8 +223,8 @@ namespace Jonckers.RabbitMQ.Core.Service
 
                 // 使用异步方法发布消息
                 await _channel.BasicPublishAsync(
-                    exchange: _myOptions.ExchangeName,
-                    routingKey: _queueName,
+                    exchange: _exchangeName,
+                    routingKey: _routingKeyName,
                     body: bytes).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -196,37 +235,22 @@ namespace Jonckers.RabbitMQ.Core.Service
         }
 
         /// <summary>
-        /// 
+        /// 带有过期时间的发送消息
         /// </summary>
-        /// <param name="routingKey"></param>
         /// <param name="data">消息</param>
-        /// <param name="exchangeName">交换机名称</param>
         /// <param name="expiration">消息超时时间，例如"60000"[60秒]</param>
         /// <param name="encoding">Encoding 编码</param>
         /// <returns></returns>
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task PublishAsync(string routingKey, T data, string exchangeName = "", string expiration = "", Encoding encoding = null)
+        public async Task PublishAsync(T data, string expiration = "", Encoding encoding = null)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(MyPublisher<T>));
             if (data == null) throw new ArgumentNullException(nameof(data));
 
             try
             {
-                if (exchangeName != string.Empty)
-                {
-                    //await _channel.ExchangeDeclareAsync(exchangeName, ExchangeType.Direct,durable: true,autoDelete: false, null);
-                    await _channel.ExchangeDeclareAsync(exchangeName, ExchangeType.Direct);
-
-                    await _channel.QueueBindAsync(
-                        queue: _queueName,
-                        exchange: exchangeName,
-                        routingKey: routingKey
-                    );
-                }
-
-
                 // 对象序列化为JSON
                 var msg = JsonConvert.SerializeObject(data);
                 byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
@@ -243,8 +267,50 @@ namespace Jonckers.RabbitMQ.Core.Service
 
                 // 使用异步方法发布消息
                 await _channel.BasicPublishAsync(
-                    exchange: string.IsNullOrEmpty(exchangeName) ? _myOptions.ExchangeName : exchangeName,
-                    routingKey: routingKey, 
+                    exchange: _exchangeName,
+                    routingKey: _routingKeyName,
+                    mandatory: false,
+                    basicProperties: properties,
+                    body: bytes).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // 可以根据需要记录日志或进行其他错误处理
+                throw new InvalidOperationException($"发布消息失败: {ex.Message}", ex);
+            }
+        }
+
+
+        /// <summary>
+        /// 带有死信队列的消息发布
+        /// </summary>
+        /// <param name="data">消息</param>
+        /// <param name="encoding">Encoding 编码</param>
+        /// <returns></returns>
+        /// <exception cref="ObjectDisposedException"></exception>
+        /// <exception cref="ArgumentNullException"></exception>
+        /// <exception cref="InvalidOperationException"></exception>
+        public async Task PublishWithDeadLetterAsync(T data, Encoding encoding = null)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(MyPublisher<T>));
+            if (data == null) throw new ArgumentNullException(nameof(data));
+
+            try
+            {
+                // 对象序列化为JSON
+                var msg = JsonConvert.SerializeObject(data);
+                byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(msg);
+
+                var properties = new BasicProperties
+                {
+                    Persistent = true
+                };
+
+
+                // 使用异步方法发布消息
+                await _channel.BasicPublishAsync(
+                    exchange: _exchangeName,
+                    routingKey: _routingKeyName,
                     mandatory: false,
                     basicProperties: properties,
                     body: bytes).ConfigureAwait(false);
