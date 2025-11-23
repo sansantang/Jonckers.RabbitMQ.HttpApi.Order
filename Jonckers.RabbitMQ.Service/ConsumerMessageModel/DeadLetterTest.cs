@@ -11,7 +11,7 @@ namespace Jonckers.RabbitMQ.Service.ConsumerMessageModel
     public class DeadLetterTest
     {
         public Guid Id { get; set; }
-        public string? Name { get; set; }
+        public string? Status { get; set; }
         public int Count { get; set; }
         public string? Remark { get; set; }
     }

@@ -14,7 +14,7 @@ builder.Services.AddSwaggerGen();
 
 // 添加MyRabbitMQ到services
 builder.Services.AddMyRabbitMQ(builder.Configuration);
-//builder.Services.AddMyRabbitMQEventHandlers(typeof(PerryTestEventHandler).Assembly);
+builder.Services.AddMyRabbitMQEventHandlers(typeof(DeadLetterTestEventHandler).Assembly);
 
 var app = builder.Build();
 

@@ -30,15 +30,15 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
             var data = new DeadLetterTest()
             {
                 Id = Guid.NewGuid(),
-                Name = "AAA",
+                Status = "Pending",
                 Count = 123,
                 Remark = "哈哈哈"
             };
 
             //await TestPublisher.PublishAsync(data);
             //await TestPublisher.PublishAsync("jonckers.enterpriseordering.requestevent", data);
-            await TestPublisher.PublishWithDeadLetterAsync(data);
-            //await TestPublisher.PublishAsync(data, "40000");
+            //await TestPublisher.PublishWithDeadLetterAsync(data);
+            await TestPublisher.PublishAsync(data);
 
             return "发送了一个消息";
         }

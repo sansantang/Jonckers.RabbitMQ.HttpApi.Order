@@ -244,7 +244,7 @@ namespace Jonckers.RabbitMQ.Core.Service
         /// <exception cref="ObjectDisposedException"></exception>
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task PublishAsync(T data, string expiration = "", Encoding encoding = null)
+        public async Task PublishAsync(T data, string expiration, Encoding encoding = null)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(MyPublisher<T>));
             if (data == null) throw new ArgumentNullException(nameof(data));

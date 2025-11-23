@@ -23,15 +23,19 @@ namespace Jonckers.RabbitMQ.Core
         /// </summary>
         public string RoutingKey { get; }
 
-        public DeadLetterExpiration DeadLetterExpiration { get; set; } = new DeadLetterExpiration(false, 6000000);
+        public DeadLetterExpiration DeadLetterExpiration { get; set; } = new DeadLetterExpiration(false, 600000);
 
         /// <summary>
         /// 构造函数（队列名为必填参数，其他通过属性/命名参数配置）
         /// </summary>
         /// <param name="queue">队列名称（必填）</param>
-        /// <param name="isWithDeadLetter">是否启用死信队列</param>
-        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
-        public RabbitMQEventAttribute(string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
+        /// <param name="isWithDeadLetter">是否启用死信队列
+        /// <list type="">deadLetterExchangeName = _exchangeName + ".dlx-exchange";</list>
+        /// <list type="">deadLetterQueueName = _queueName + ".dlx-queue";</list>
+        /// <list type="">deadLetterRoutingKey = _routingKeyName + ".dlrk-routingKey"</list>
+        /// </param>
+        /// <param name="expirationMilliseconds">单位：ms，多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 600000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             Exchange = ConfigurationManager.DefaultExchangeName; // 使用配置管理器中的默认交换机名称
@@ -43,9 +47,13 @@ namespace Jonckers.RabbitMQ.Core
         /// </summary>
         /// <param name="routingkey"></param>
         /// <param name="queue"></param>
-        /// <param name="isWithDeadLetter">是否启用死信队列</param>
-        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
-        public RabbitMQEventAttribute(string routingkey, string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
+        /// <param name="isWithDeadLetter">是否启用死信队列
+        /// <list type="">deadLetterExchangeName = _exchangeName + ".dlx-exchange";</list>
+        /// <list type="">deadLetterQueueName = _queueName + ".dlx-queue";</list>
+        /// <list type="">deadLetterRoutingKey = _routingKeyName + ".dlrk-routingKey"</list>
+        /// </param>
+        /// <param name="expirationMilliseconds">单位：ms，多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string routingkey, string queue, bool isWithDeadLetter = false, int expirationMilliseconds = 600000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             RoutingKey = routingkey;
@@ -59,9 +67,13 @@ namespace Jonckers.RabbitMQ.Core
         /// <param name="routingkey"></param>
         /// <param name="queue"></param>
         /// <param name="exchange"></param>
-        /// <param name="isWithDeadLetter">是否启用死信队列</param>
-        /// <param name="expirationMilliseconds">多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
-        public RabbitMQEventAttribute(string routingkey, string queue, string exchange, bool isWithDeadLetter = false, int expirationMilliseconds = 6000000)
+        /// <param name="isWithDeadLetter">是否启用死信队列，  
+        /// <list type="">deadLetterExchangeName = _exchangeName + ".dlx-exchange";</list>
+        /// <list type="">deadLetterQueueName = _queueName + ".dlx-queue";</list>
+        /// <list type="">deadLetterRoutingKey = _routingKeyName + ".dlrk-routingKey"</list>
+        /// </param>
+        /// <param name="expirationMilliseconds">单位：ms，多少时间过期到死信队列,必须 isWithDeadLetter = ture</param>
+        public RabbitMQEventAttribute(string routingkey, string queue, string exchange, bool isWithDeadLetter = false, int expirationMilliseconds = 600000)
         {
             Queue = queue; // 强制必填，确保队列名不会为空
             RoutingKey = routingkey;
