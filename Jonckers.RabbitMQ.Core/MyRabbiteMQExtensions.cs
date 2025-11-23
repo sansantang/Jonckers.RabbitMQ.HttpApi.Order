@@ -115,10 +115,19 @@ namespace Jonckers.RabbitMQ.Core
         }
 
         /// <summary>
-        /// 给app拓展方法
+        /// 注册并启动所有 RabbitMQ 事件处理器（基于 IMyEventHandler 的消费者）。
+        /// 该方法会在应用启动时被调用，用于初始化所有实现了 IMyEventHandler 接口的消费者，
+        /// 建立与 RabbitMQ 的连接，并启动消息监听。
         /// </summary>
+        /// <param name="app">ASP.NET Core 的应用程序构建器（IApplicationBuilder），通常传入 app 对象。</param>
+        /// <returns>返回传入的 IApplicationBuilder，以支持链式调用。</returns>
         /// <remarks>
-        /// 在IoC容器里获取到所有继承自IMyEventHandler的实现类，并开启消费者
+        /// 该方法会：
+        /// 1. 从依赖注入容器中获取所有 IMyEventHandler 实现类的实例；
+        /// 2. 创建 RabbitMQ 连接；
+        /// 3. 遍历每个事件处理器，调用其 Begin(connection) 方法以启动消费者并开始监听队列；
+        /// 4. 若连接失败或没有找到任何事件处理器，将输出日志并做适当处理；
+        /// 5. 保证事件处理器不会被 GC 回收，以维持 RabbitMQ 消费者长连接。
         /// </remarks>
         public static async Task<IApplicationBuilder> UseMyEventHandler(this IApplicationBuilder app)
         {
@@ -144,7 +153,7 @@ namespace Jonckers.RabbitMQ.Core
                 {
                     connection = await factory.CreateConnectionAsync();
                     var connectionEndTime = DateTime.Now;
-                        Console.WriteLine($"RabbitMQ连接建立成功: {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
+                    Console.WriteLine($"RabbitMQ连接建立成功: {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
 
                 }
                 catch (Exception connectEx)
