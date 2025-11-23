@@ -1,5 +1,5 @@
-using Jonckers.RabbitMQ.Core.IService;
 using Jonckers.RabbitMQ.Service.ConsumerMessageModel;
+using Jonckers.RabbitMQClient.Core.IService;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
@@ -9,7 +9,7 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
     public class WeatherForecastController : ControllerBase
     {
 
-        public IMyPublisher<DeadLetterTest> TestPublisher { get; }
+        public IMyPublisher<PerryTest> TestPublisher { get; }
 
         private static readonly string[] Summaries = new[]
         {
@@ -18,7 +18,7 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
 
         private readonly ILogger<WeatherForecastController> _logger;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger, IMyPublisher<DeadLetterTest> testPublisher)
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, IMyPublisher<PerryTest> testPublisher)
         {
             _logger = logger;
             TestPublisher = testPublisher;
@@ -27,17 +27,14 @@ namespace Jonckers.RabbitMQ.HttpApi.Order.Controllers
         [HttpGet("test")]
         public async Task<string> TestAsync()
         {
-            var data = new DeadLetterTest()
+            var data = new PerryTest()
             {
                 Id = Guid.NewGuid(),
-                Status = "Pending",
+                Name = "Pending",
                 Count = 123,
                 Remark = "哈哈哈"
             };
 
-            //await TestPublisher.PublishAsync(data);
-            //await TestPublisher.PublishAsync("jonckers.enterpriseordering.requestevent", data);
-            //await TestPublisher.PublishWithDeadLetterAsync(data);
             await TestPublisher.PublishAsync(data);
 
             return "发送了一个消息";

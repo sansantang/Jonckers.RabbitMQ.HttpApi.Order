@@ -1,4 +1,4 @@
-﻿using Jonckers.RabbitMQ.Core;
+﻿using Jonckers.RabbitMQClient.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;

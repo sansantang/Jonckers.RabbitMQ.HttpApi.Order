@@ -1,4 +1,4 @@
-﻿using Jonckers.RabbitMQ.Core;
+﻿using Jonckers.RabbitMQClient.Core;
 using Jonckers.RabbitMQ.HttpApi.Order;
 using Jonckers.RabbitMQ.HttpApi.Order.Consumer;
 

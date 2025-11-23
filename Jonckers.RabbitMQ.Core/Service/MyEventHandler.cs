@@ -1,5 +1,5 @@
-﻿using Jonckers.RabbitMQ.Core.IService;
-using Jonckers.RabbitMQ.Core.Options;
+﻿using Jonckers.RabbitMQClient.Core.IService;
+using Jonckers.RabbitMQClient.Core.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -13,7 +13,7 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace Jonckers.RabbitMQ.Core.Service
+namespace Jonckers.RabbitMQClient.Core.Service
 {
     public abstract class MyEventHandler<T> : IMyEventHandler<T> where T : class
     {

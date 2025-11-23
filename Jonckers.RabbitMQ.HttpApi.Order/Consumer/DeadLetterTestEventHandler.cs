@@ -1,5 +1,5 @@
-﻿using Jonckers.RabbitMQ.Core.Service;
-using Jonckers.RabbitMQ.Service.ConsumerMessageModel;
+﻿using Jonckers.RabbitMQ.Service.ConsumerMessageModel;
+using Jonckers.RabbitMQClient.Core.Service;
 
 namespace Jonckers.RabbitMQ.HttpApi.Order.Consumer
 {

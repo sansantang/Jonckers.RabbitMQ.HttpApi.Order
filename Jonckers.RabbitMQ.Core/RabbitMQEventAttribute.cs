@@ -1,9 +1,9 @@
-﻿using Jonckers.RabbitMQ.Core.Options;
+﻿using Jonckers.RabbitMQClient.Core.Options;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Jonckers.RabbitMQ.Core
+namespace Jonckers.RabbitMQClient.Core
 {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public class RabbitMQEventAttribute : Attribute

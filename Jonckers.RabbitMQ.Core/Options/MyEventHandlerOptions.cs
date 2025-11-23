@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Jonckers.RabbitMQ.Core.Options
+namespace Jonckers.RabbitMQClient.Core.Options
 {
     /// <summary>
     /// Handler的配置

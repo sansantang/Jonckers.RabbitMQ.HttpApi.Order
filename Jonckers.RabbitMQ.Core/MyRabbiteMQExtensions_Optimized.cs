@@ -1,28 +1,27 @@
-﻿using Jonckers.RabbitMQClient.Core.IService;
-using Jonckers.RabbitMQClient.Core.Options;
-using Jonckers.RabbitMQClient.Core.Service;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
+using Jonckers.RabbitMQ.Core.IService;
+using Jonckers.RabbitMQ.Core.Options;
+using Jonckers.RabbitMQ.Core.Service;
 using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 
-namespace Jonckers.RabbitMQClient.Core
+namespace Jonckers.RabbitMQ.Core
 {
     public static class MyRabbiteMQExtensions
     {
         /// <summary>
         /// 初始化消息队列，并添加Publisher到IoC容器
         /// </summary>
-        /// <remarks>从Configuration读取"MyRabbbitMQOptions配置项"</remarks>
+        /// <remarks>从Configuration读取"RabbitMQConnection配置项"</remarks>
         public static IServiceCollection AddMyRabbitMQ(this IServiceCollection services, IConfiguration configuration)
         {
             #region 配置项
-            // 从Configuration读取"MyRabbbitMQOptions配置项
+            // 从Configuration读取"RabbitMQConnection配置项
             var optionSection = configuration.GetSection("RabbitMQConnection");
 
             // 这个myOptions是当前方法使用
@@ -54,20 +53,26 @@ namespace Jonckers.RabbitMQClient.Core
             services.AddTransient(typeof(IMyPublisher<>), typeof(MyPublisher<>));
 
             // 创建一个工厂对象，并配置单例注入
-            var connectionFactory = new ConnectionFactory
+            services.AddSingleton(new ConnectionFactory
             {
                 UserName = myOptions.UserName,
                 Password = myOptions.Password,
-                // 注意：如果配置了集群地址，HostName 会被 Hostnames 覆盖
                 HostName = myOptions.Host,
                 Port = myOptions.Port,
                 // 启用自动连接恢复，支持集群故障转移
                 AutomaticRecoveryEnabled = true,
                 NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
-                RequestedHeartbeat = TimeSpan.FromSeconds(60)
-            };
+                RequestedHeartbeat = 60
+            });
 
-            services.AddSingleton(connectionFactory);
+            // 将 IConnection 注册为单例，确保整个应用只有一个 RabbitMQ 连接
+            services.AddSingleton<IConnection>(provider =>
+            {
+                var factory = provider.GetRequiredService<ConnectionFactory>();
+                var connection = factory.CreateConnection();
+                Console.WriteLine("✅ RabbitMQ 长连接已创建并注册为单例");
+                return connection;
+            });
 
             return services;
         }
@@ -125,109 +130,68 @@ namespace Jonckers.RabbitMQClient.Core
         /// <summary>
         /// 注册并启动所有 RabbitMQ 事件处理器（基于 IMyEventHandler 的消费者）。
         /// 该方法会在应用启动时被调用，用于初始化所有实现了 IMyEventHandler 接口的消费者，
-        /// 建立与 RabbitMQ 的连接，并启动消息监听。
+        /// 使用已注册的单例 RabbitMQ 连接，并启动消息监听。
         /// </summary>
         /// <param name="app">ASP.NET Core 的应用程序构建器（IApplicationBuilder），通常传入 app 对象。</param>
         /// <returns>返回传入的 IApplicationBuilder，以支持链式调用。</returns>
         /// <remarks>
         /// 该方法会：
         /// 1. 从依赖注入容器中获取所有 IMyEventHandler 实现类的实例；
-        /// 2. 创建 RabbitMQ 连接；
+        /// 2. 从 DI 容器获取已注册的单例 RabbitMQ 连接（IConnection）；
         /// 3. 遍历每个事件处理器，调用其 Begin(connection) 方法以启动消费者并开始监听队列；
-        /// 4. 若连接失败或没有找到任何事件处理器，将输出日志并做适当处理；
+        /// 4. 若没有找到任何事件处理器或连接未注册，将输出日志并做适当处理；
         /// 5. 保证事件处理器不会被 GC 回收，以维持 RabbitMQ 消费者长连接。
         /// </remarks>
-        public static async Task<IApplicationBuilder> UseMyEventHandler(this IApplicationBuilder app)
+        public static IApplicationBuilder UseMyEventHandler(this IApplicationBuilder app)
         {
-            // 将事件处理器存储在静态变量中，防止被垃圾回收
-            var eventHandlerHolder = new List<IMyEventHandler>();
-
             try
             {
-                var handlers = app.ApplicationServices.GetServices(typeof(IMyEventHandler));
-                var factory = app.ApplicationServices.GetService<ConnectionFactory>();
+                // 1. 获取所有已注册的事件处理器（单例）
+                var handlers = app.ApplicationServices.GetServices<IMyEventHandler>().ToList();
 
                 if (!handlers.Any())
                 {
-                    Console.WriteLine("未发现任何事件处理器");
+                    Console.WriteLine("⚠️ 未发现任何事件处理器");
                     return app;
                 }
 
-                // 获取连接（同步方式，避免异步上下文问题）
-                IConnection? connection = null;
-                var connectionStartTime = DateTime.Now;
-                Console.WriteLine($"开始建立RabbitMQ连接: {connectionStartTime:yyyy-MM-dd HH:mm:ss.fff}");
-                try
+                Console.WriteLine($"📋 发现 {handlers.Count} 个事件处理器");
+
+                // 2. ✅ 从 DI 容器获取单例的 IConnection（而不是动态创建）
+                var connection = app.ApplicationServices.GetService<IConnection>();
+                if (connection == null)
                 {
-                    // ✅ 支持 RabbitMQ 集群：使用 AmqpTcpEndpoint 替代 Address
-                    var configuration = app.ApplicationServices.GetRequiredService<IConfiguration>();
-                    var hostsSection = configuration.GetSection("RabbitMQConnection:Address");
-                    
-                    if (hostsSection.Exists())
-                    {
-                        var endpoints = new List<AmqpTcpEndpoint>();
-                        var hosts = hostsSection.GetChildren().Select(x => x.Value).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
-
-                        if (hosts != null && hosts.Length > 0)
-                        {
-                            foreach (var host in hosts)
-                            {
-                                // 支持格式："hostname:port" 或 "hostname"
-                                var parts = host.Split(':');
-                                var hostname = parts[0];
-                                var port = parts.Length > 1 && int.TryParse(parts[1], out int portNum) ? portNum : 5672;
-
-                                endpoints.Add(new AmqpTcpEndpoint(hostname, port));
-                                Console.WriteLine($"添加 RabbitMQ 集群节点: {hostname}:{port}");
-                            }
-                            Console.WriteLine($"已配置 RabbitMQ 集群，共 {endpoints.Count} 个节点");
-                        }
-
-                        connection = await factory.CreateConnectionAsync(endpoints);
-                    }
-                    else
-                    {
-                        connection = await factory.CreateConnectionAsync();
-                    }
-                    
-                    var connectionEndTime = DateTime.Now;
-                    Console.WriteLine($"RabbitMQ连接建立成功: {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
-
-                }
-                catch (Exception connectEx)
-                {
-                    var connectionEndTime = DateTime.Now;
-                    Console.WriteLine($"RabbitMQ连接失败: {connectEx.Message}, {connectionEndTime:yyyy-MM-dd HH:mm:ss.fff}，耗时: {(connectionEndTime - connectionStartTime).TotalMilliseconds}ms");
-                    Console.WriteLine($"连接配置: Host={factory.HostName}, Port={factory.Port}, User={factory.UserName}");
-                    throw new InvalidOperationException("无法建立RabbitMQ连接", connectEx);
+                    throw new InvalidOperationException("❌ RabbitMQ IConnection 未注册为单例，请检查 DI 配置");
                 }
 
-                // 遍历调用自定义的Begin方法
-                foreach (var h in handlers)
+                Console.WriteLine($"🟢 使用已注册的 RabbitMQ 单例连接: {connection.Endpoint}");
+                Console.WriteLine($"🔗 连接状态: {(connection.IsOpen ? "已连接" : "未连接")}");
+
+                // 3. 遍历调用每个处理器的 Begin 方法启动消费者
+                foreach (var handler in handlers)
                 {
-                    var handler = h as IMyEventHandler;
-                    if (handler != null)
+                    try
                     {
                         handler.Begin(connection).Wait(); // 同步等待确保初始化完成
-                        eventHandlerHolder.Add(handler); // 保存引用防止被垃圾回收
-                        Console.WriteLine($"Handler {h.GetType().Name} started successfully \n");
+                        Console.WriteLine($"✅ Handler {handler.GetType().Name} 启动成功");
                     }
-                    else
+                    catch (Exception handlerEx)
                     {
-                        Console.WriteLine($"Failed to cast handler: {h.GetType().Name}");
+                        Console.WriteLine($"❌ Handler {handler.GetType().Name} 启动失败: {handlerEx.Message}");
                     }
                 }
 
-                // 将事件处理器持有者注册为单例，确保不会被垃圾回收
-                app.ApplicationServices.GetService<System.IServiceProvider>()
-                    .GetService<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>();
-
-                Console.WriteLine("所有事件处理器初始化完成");
+                Console.WriteLine("🎉 所有事件处理器初始化完成");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error initializing event handlers: {ex.Message}, InnerException: {ex.InnerException?.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                Console.WriteLine($"❌ Error 初始化事件处理器: {ex.Message}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"   InnerException: {ex.InnerException.Message}");
+                }
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                throw; // 重新抛出异常，让应用启动失败以便及时发现问题
             }
 
             return app;

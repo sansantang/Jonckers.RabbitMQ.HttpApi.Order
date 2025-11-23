@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Jonckers.RabbitMQ.Core.Options
+namespace Jonckers.RabbitMQClient.Core.Options
 {
     public class RabbitMQOptions
     {

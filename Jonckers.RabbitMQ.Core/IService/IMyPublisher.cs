@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Jonckers.RabbitMQ.Core.IService
+namespace Jonckers.RabbitMQClient.Core.IService
 {
     /// <summary>
     /// 用于注入使用

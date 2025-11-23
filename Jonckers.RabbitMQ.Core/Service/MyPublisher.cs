@@ -1,6 +1,6 @@
-﻿using Jonckers.RabbitMQ.Core.Extend;
-using Jonckers.RabbitMQ.Core.IService;
-using Jonckers.RabbitMQ.Core.Options;
+﻿using Jonckers.RabbitMQClient.Core.Extend;
+using Jonckers.RabbitMQClient.Core.IService;
+using Jonckers.RabbitMQClient.Core.Options;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using RabbitMQ.Client;
@@ -12,7 +12,7 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace Jonckers.RabbitMQ.Core.Service
+namespace Jonckers.RabbitMQClient.Core.Service
 {
     public class MyPublisher<T> : IMyPublisher<T>, IDisposable where T : class
     {

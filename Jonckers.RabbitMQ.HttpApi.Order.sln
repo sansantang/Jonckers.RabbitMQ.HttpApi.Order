@@ -5,7 +5,7 @@ VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.HttpApi.Order", "Jonckers.RabbitMQ.HttpApi.Order\Jonckers.RabbitMQ.HttpApi.Order.csproj", "{3DE7A7BD-307D-4353-8006-F2807ACE747B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.Core", "Jonckers.RabbitMQ.Core\Jonckers.RabbitMQ.Core.csproj", "{131539AF-82A5-4CA4-8165-C2783FDB1596}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQClient.Core", "Jonckers.RabbitMQ.Core\Jonckers.RabbitMQClient.Core.csproj", "{131539AF-82A5-4CA4-8165-C2783FDB1596}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jonckers.RabbitMQ.Service", "Jonckers.RabbitMQ.Service\Jonckers.RabbitMQ.Service.csproj", "{8DA1E7A9-5BDC-43D0-8F60-6477ECAB604B}"
 EndProject
